@@ -38,6 +38,7 @@ public:
     void invalidateTile(const CanonicalTileID&);
 
 private:
+    void removeTileCallback(const OverscaledTileID& tileID);
     void invokeTileFetch(const CanonicalTileID& tileID);
     void invokeTileCancel(const CanonicalTileID& tileID);
 

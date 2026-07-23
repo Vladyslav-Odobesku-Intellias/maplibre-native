@@ -15,6 +15,7 @@ dependencies {
     lintChecks(project(":MapLibreAndroidLint"))
     api(libs.maplibreJavaGeoJSON)
     api(libs.maplibreGestures)
+    api(libs.kotlinxCoroutinesCore)
 
     implementation(libs.maplibreJavaTurf)
     implementation(libs.supportAnnotations)
@@ -22,7 +23,6 @@ dependencies {
     implementation(libs.okhttp3)
     implementation(libs.timber)
     implementation(libs.interpolator)
-    implementation(libs.kotlinxCoroutinesCore)
 
     testImplementation(libs.junit)
     testImplementation(libs.mockito)
