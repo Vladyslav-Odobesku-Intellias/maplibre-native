@@ -4,8 +4,8 @@ import androidx.annotation.Keep
 import androidx.annotation.UiThread
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 
@@ -45,12 +45,14 @@ class CustomVectorSource(
                 throw e
             } catch (e: Exception) {
                 nativeSetTileError(z, x, y, e.message ?: "Tile fetch failed")
-            } finally {
-                val self = coroutineContext[Job]!!
-                activeJobs.remove(tileId, self)
             }
         }
         activeJobs[tileId] = job
+        job.invokeOnCompletion { cause ->
+            if (activeJobs.remove(tileId, job) && cause is CancellationException) {
+                nativeSetTileError(z, x, y, cause.message ?: "Tile fetch cancelled")
+            }
+        }
         job.start()
     }
 
@@ -64,8 +66,9 @@ class CustomVectorSource(
 
     @Keep
     private fun onRemovedFromMap() {
-        activeJobs.values.forEach { it.cancel() }
+        val jobs = activeJobs.values.toList()
         activeJobs.clear()
+        jobs.forEach { it.cancel() }
     }
 
     @Keep

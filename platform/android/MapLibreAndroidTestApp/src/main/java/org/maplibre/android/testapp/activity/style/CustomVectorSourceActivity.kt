@@ -33,7 +33,9 @@ class CustomVectorSourceActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var mapView: MapView
     private var maplibreMap: MapLibreMap? = null
     private var sourceActive = false
+    // --8<-- [start:sourceScope]
     private val tileScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    // --8<-- [end:sourceScope]
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,6 +65,7 @@ class CustomVectorSourceActivity : AppCompatActivity(), OnMapReadyCallback {
             sourceActive = false
             Toast.makeText(this, "CustomVectorSource removed", Toast.LENGTH_SHORT).show()
         } else {
+            // --8<-- [start:addCustomVectorSource]
             val source = CustomVectorSource(SOURCE_ID, DiagonalTileProvider(), tileScope, minZoom = 0, maxZoom = 14)
             val layer = LineLayer(LAYER_ID, SOURCE_ID).apply {
                 setSourceLayer(SOURCE_LAYER_NAME)
@@ -74,6 +77,7 @@ class CustomVectorSourceActivity : AppCompatActivity(), OnMapReadyCallback {
             }
             style.addSource(source)
             style.addLayer(layer)
+            // --8<-- [end:addCustomVectorSource]
             sourceActive = true
             Toast.makeText(this, "CustomVectorSource added", Toast.LENGTH_SHORT).show()
         }
@@ -83,6 +87,7 @@ class CustomVectorSourceActivity : AppCompatActivity(), OnMapReadyCallback {
      * A fake tile provider that generates MVT tiles containing diagonal lines.
      * Simulates async work with a small delay.
      */
+    // --8<-- [start:tileProvider]
     private class DiagonalTileProvider : CustomVectorTileProvider {
         override suspend fun fetchTile(z: Int, x: Int, y: Int): TileData {
             // Simulate network latency
@@ -91,12 +96,15 @@ class CustomVectorSourceActivity : AppCompatActivity(), OnMapReadyCallback {
             return TileData.Mvt(mvtBytes)
         }
     }
+    // --8<-- [end:tileProvider]
 
     override fun onStart() { super.onStart(); mapView.onStart() }
     override fun onResume() { super.onResume(); mapView.onResume() }
     override fun onPause() { super.onPause(); mapView.onPause() }
     override fun onStop() { super.onStop(); mapView.onStop() }
+    // --8<-- [start:cancelScope]
     override fun onDestroy() { tileScope.cancel(); super.onDestroy(); mapView.onDestroy() }
+    // --8<-- [end:cancelScope]
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         mapView.onSaveInstanceState(outState)

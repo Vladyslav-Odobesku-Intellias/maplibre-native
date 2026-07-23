@@ -1,6 +1,8 @@
 #include <mbgl/style/custom_vector_tile_loader.hpp>
 #include <mbgl/tile/custom_vector_tile.hpp>
 
+#include <algorithm>
+
 namespace mbgl {
 namespace style {
 
@@ -18,46 +20,47 @@ void CustomVectorTileLoader::fetchTile(const OverscaledTileID& tileID, const Act
     if (tileCallbacks == tileCallbackMap.end()) {
         auto tuple = std::make_tuple(tileID.overscaledZ, tileID.wrap, tileRef);
         tileCallbackMap.insert({tileID.canonical, std::vector<OverscaledIDFunctionTuple>(1, tuple)});
-    } else {
-        for (auto& iter : tileCallbacks->second) {
-            if (std::get<0>(iter) == tileID.overscaledZ && std::get<1>(iter) == tileID.wrap) {
-                std::get<2>(iter) = tileRef;
-                return;
-            }
+        if (cachedTileData == dataCache.end()) {
+            invokeTileFetch(tileID.canonical);
         }
-        tileCallbacks->second.emplace_back(std::make_tuple(tileID.overscaledZ, tileID.wrap, tileRef));
+        return;
     }
-    if (cachedTileData == dataCache.end()) {
-        invokeTileFetch(tileID.canonical);
+
+    for (auto& iter : tileCallbacks->second) {
+        if (std::get<0>(iter) == tileID.overscaledZ && std::get<1>(iter) == tileID.wrap) {
+            std::get<2>(iter) = tileRef;
+            return;
+        }
     }
+    tileCallbacks->second.emplace_back(std::make_tuple(tileID.overscaledZ, tileID.wrap, tileRef));
 }
 
 void CustomVectorTileLoader::cancelTile(const OverscaledTileID& tileID) {
     std::scoped_lock guard(dataMutex);
-    if (tileCallbackMap.contains(tileID.canonical)) {
-        invokeTileCancel(tileID.canonical);
-        // Erase so a subsequent fetchTile for the same tile re-issues the fetch.
-        // Intentionally diverges from CustomTileLoader which omits this — that is a
-        // latent bug there that needs a separate cleanup.
-        tileCallbackMap.erase(tileID.canonical);
-    }
+    removeTileCallback(tileID);
 }
 
 void CustomVectorTileLoader::removeTile(const OverscaledTileID& tileID) {
     std::scoped_lock guard(dataMutex);
+    removeTileCallback(tileID);
+}
+
+void CustomVectorTileLoader::removeTileCallback(const OverscaledTileID& tileID) {
     auto tileCallbacks = tileCallbackMap.find(tileID.canonical);
     if (tileCallbacks == tileCallbackMap.end()) return;
-    for (auto iter = tileCallbacks->second.begin(); iter != tileCallbacks->second.end(); iter++) {
-        if (std::get<0>(*iter) == tileID.overscaledZ && std::get<1>(*iter) == tileID.wrap) {
-            tileCallbacks->second.erase(iter);
-            invokeTileCancel(tileID.canonical);
-            break;
-        }
-    }
-    if (tileCallbacks->second.empty()) {
-        tileCallbackMap.erase(tileCallbacks);
-        dataCache.erase(tileID.canonical);
-    }
+
+    auto& callbacks = tileCallbacks->second;
+    const auto callback = std::find_if(callbacks.begin(), callbacks.end(), [&](const auto& entry) {
+        return std::get<0>(entry) == tileID.overscaledZ && std::get<1>(entry) == tileID.wrap;
+    });
+    if (callback == callbacks.end()) return;
+
+    callbacks.erase(callback);
+    if (!callbacks.empty()) return;
+
+    invokeTileCancel(tileID.canonical);
+    tileCallbackMap.erase(tileCallbacks);
+    dataCache.erase(tileID.canonical);
 }
 
 void CustomVectorTileLoader::setTileData(const CanonicalTileID& tileID,
@@ -92,8 +95,8 @@ void CustomVectorTileLoader::invalidateTile(const CanonicalTileID& tileID) {
     for (auto& iter : tileCallbacks->second) {
         auto actor = std::get<2>(iter);
         actor.invoke(&CustomVectorTile::invalidateTileData);
-        invokeTileCancel(tileID);
     }
+    invokeTileCancel(tileID);
     tileCallbackMap.erase(tileCallbacks);
     dataCache.erase(tileID);
 }

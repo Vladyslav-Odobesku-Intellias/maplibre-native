@@ -6,6 +6,8 @@ You can specify where to load MVTs (which sometimes have `.pbf` extension) by cr
 
 MapLibre has [a repo](https://github.com/maplibre/demotiles/tree/gh-pages/tiles-omt) with some example vector tiles with the OpenMapTiles schema around Innsbruck, Austria. In the example we load these MVTs and create a line layer for the road network.
 
+To generate or fetch MVT data in application code instead of loading it from a URL template, use a [custom vector source](custom-vector-source.md).
+
 ```kotlin
 --8<-- "MapLibreAndroidTestApp/src/main/java/org/maplibre/android/testapp/activity/sources/VectorTileActivity.kt:addTileSet"
 ```
